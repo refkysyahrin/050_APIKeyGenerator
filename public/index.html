@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User Registration & Key Validator</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&family=IBM+Plex+Mono:wght@400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="registerSection" class="card">
+      <h1>Dapatkan API Key Anda</h1>
+      <p class="subtitle">Isi data, generate key, lalu simpan.</p>
+
+      <div class="input-group">
+        <div>
+          <label for="firstName">Nama Depan</label>
+          <input type="text" id="firstName" placeholder="John" />
+        </div>
+        <div>
+          <label for="lastName">Nama Belakang</label>
+          <input type="text" id="lastName" placeholder="Doe" />
+        </div>
+        <div>
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="john.doe@example.com" />
+        </div>
+        <hr class="separator" style="margin: 0.5rem 0" />
+        <div>
+          <label for="apiKey">API Key Anda (Klik 'Generate')</label>
+          <input
+            type="text"
+            id="apiKey"
+            placeholder="Klik tombol generate..."
+            readonly
+          />
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 1rem">
+        <button
+          id="generateBtn"
+          class="btn btn-primary"
+          style="background-color: var(--success)"
+        >
+          1. Generate Key
+        </button>
+
+        <button id="saveBtn" class="btn btn-primary">2. Save</button>
+      </div>
+      <p id="createFeedback" class="feedback"></p>
+    </div>
+
+    <div id="checkSection" class="card">
+      <h2>Validasi API Key</h2>
+      <p class="subtitle">
+        Masukkan API key Anda untuk memeriksa validitasnya.
+      </p>
+
+      <div class="input-group">
+        <div>
+          <label for="checkKeyInput">API Key</label>
+          <input
+            type="text"
+            id="checkKeyInput"
+            class="api-key-input"
+            placeholder="Masukkan API key..."
+          />
+        </div>
+      </div>
+      <button id="checkBtn" class="btn btn-primary">Cek Validitas</button>
+      <p id="checkFeedback" class="feedback"></p>
+    </div>
+
+    <footer>Copyright DP</footer>
+
+    <script>
+      // --- 1. Pemilih Elemen DOM ---
+
+      // Bagian Registrasi
+      const generateBtn = document.getElementById("generateBtn");
+      const saveBtn = document.getElementById("saveBtn");
+      const firstNameInput = document.getElementById("firstName");
+      const lastNameInput = document.getElementById("lastName");
+      const emailInput = document.getElementById("email");
+      const apiKeyInput = document.getElementById("apiKey");
+      const createFeedback = document.getElementById("createFeedback");
+
+      // Bagian Validasi
+      const checkBtn = document.getElementById("checkBtn");
+      const checkKeyInput = document.getElementById("checkKeyInput");
+      const checkFeedback = document.getElementById("checkFeedback");
+
+      // --- 2. Fungsi Tampilan (UI) ---
+      function showFeedback(element, message, isValid) {
+        element.textContent = message;
+        element.classList.remove("valid", "invalid");
+        element.classList.add("visible", isValid ? "valid" : "invalid");
+        setTimeout(() => element.classList.remove("visible"), 3000);
+      }
+
+      // --- 3. Fungsi Logika (Fetch API) ---
+
+      // Fungsi Generate Key (Publik)
+      async function generateKey() {
+        try {
+          const res = await fetch("/generate_key");
+          const data = await res.json();
+          if (res.ok) {
+            apiKeyInput.value = data.apiKey;
+            showFeedback(createFeedback, "Key berhasil digenerate!", true);
+          }
+        } catch (err) {
+          showFeedback(createFeedback, "Gagal generate key", false);
+        }
+      }
+
+      // Fungsi Save User (Publik)
+      async function saveUser() {
+        const body = {
+          firstName: firstNameInput.value,
+          lastName: lastNameInput.value,
+          email: emailInput.value,
+          apiKey: apiKeyInput.value,
+        };
+
+        // Validasi frontend
+        if (!body.firstName || !body.lastName || !body.email || !body.apiKey) {
+          showFeedback(createFeedback, "Semua field harus diisi!", false);
+          return;
+        }
+
+        try {
+          const res = await fetch("/users", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              // TIDAK PERLU 'Authorization' KARENA INI PUBLIK
+            },
+            body: JSON.stringify(body),
+          });
+          const data = await res.json();
+          showFeedback(createFeedback, data.message || data.error, res.ok);
+
+          if (res.ok) {
+            // Kosongkan form setelah sukses
+            firstNameInput.value = "";
+            lastNameInput.value = "";
+            emailInput.value = "";
+            apiKeyInput.value = "";
+          }
+        } catch (err) {
+          showFeedback(createFeedback, "Error jaringan. Coba lagi.", false);
+        }
+      }
+
+      // Fungsi Validasi Key (Publik)
+      async function validateApiKey() {
+        const apiKey = checkKeyInput.value;
+        if (!apiKey) {
+          showFeedback(checkFeedback, "Input tidak boleh kosong", false);
+          return;
+        }
+        try {
+          const res = await fetch("/check", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ apiKey: apiKey }),
+          });
+          const data = await res.json();
+          showFeedback(checkFeedback, data.message || data.error, res.ok);
+        } catch (err) {
+          showFeedback(checkFeedback, "Error jaringan.", false);
+        }
+      }
+
+      // --- 4. Event Listeners ---
+      generateBtn.addEventListener("click", generateKey);
+      saveBtn.addEventListener("click", saveUser);
+      checkBtn.addEventListener("click", validateApiKey);
+    </script>
+  </body>
+</html>

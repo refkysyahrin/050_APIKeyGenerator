@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&family=IBM+Plex+Mono:wght@400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="authSection" class="card">
+      <h1>Admin Auth</h1>
+      <p class="subtitle">Silakan register atau login untuk mengelola user.</p>
+
+      <div class="input-group">
+        <div>
+          <label for="adminEmail">Email Admin</label>
+          <input type="email" id="adminEmail" placeholder="admin@example.com" />
+        </div>
+        <div>
+          <label for="adminPassword">Password Admin</label>
+          <input type="password" id="adminPassword" placeholder="••••••••" />
+        </div>
+      </div>
+      <div style="display: flex; gap: 1rem">
+        <button id="registerBtn" class="btn btn-primary">Register</button>
+        <button id="loginBtn" class="btn btn-primary">Login</button>
+      </div>
+      <p id="authFeedback" class="feedback"></p>
+    </div>
+
+    <div id="adminPanel" class="card" style="display: none">
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        "
+      >
+        <h1>Admin Panel</h1>
+        <button id="logoutBtn" class="btn btn-danger" style="width: auto">
+          Logout
+        </button>
+      </div>
+      <p class="subtitle">
+        Login sebagai: <strong id="loggedInEmail"></strong>
+      </p>
+
+      <hr class="separator" />
+
+      <h2>Buat User Baru</h2>
+      <p class="subtitle">
+        Langkah 1: Generate Key. Langkah 2: Isi form dan Create User.
+      </p>
+
+      <div class="input-group">
+        <div>
+          <label for="firstName">Nama Depan</label
+          ><input type="text" id="firstName" placeholder="John" />
+        </div>
+        <div>
+          <label for="lastName">Nama Belakang</label
+          ><input type="text" id="lastName" placeholder="Doe" />
+        </div>
+        <div>
+          <label for="email">Email User</label
+          ><input type="email" id="email" placeholder="john.doe@example.com" />
+        </div>
+        <div>
+          <label for="apiKey">API Key (Klik 'Generate')</label
+          ><input
+            type="text"
+            id="apiKey"
+            placeholder="Klik tombol generate..."
+          />
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 1rem">
+        <button
+          id="generateBtn"
+          class="btn btn-primary"
+          style="background-color: var(--success)"
+        >
+          1. Generate Key
+        </button>
+        <button id="createBtn" class="btn btn-primary">2. Create User</button>
+      </div>
+      <p id="createFeedback" class="feedback"></p>
+
+      <hr class="separator" />
+
+      <h2>List User</h2>
+      <button id="listBtn" class="btn btn-primary" style="margin-bottom: 1rem">
+        Tampilkan List User
+      </button>
+      <div class="user-table-container">
+        <table class="user-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Email</th>
+              <th>API Key</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="userListBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <footer>Copyright DP</footer>
+
+    <script>
+      let jwtToken = null;
+
+      // --- 1. Pemilih Elemen DOM (Hanya Admin) ---
+      const authSection = document.getElementById("authSection");
+      const adminPanel = document.getElementById("adminPanel");
+
+      const registerBtn = document.getElementById("registerBtn");
+      const loginBtn = document.getElementById("loginBtn");
+      const logoutBtn = document.getElementById("logoutBtn");
+      const generateBtn = document.getElementById("generateBtn");
+      const createBtn = document.getElementById("createBtn");
+      const listBtn = document.getElementById("listBtn");
+
+      const adminEmailInput = document.getElementById("adminEmail");
+      const adminPasswordInput = document.getElementById("adminPassword");
+      const loggedInEmail = document.getElementById("loggedInEmail");
+
+      const firstNameInput = document.getElementById("firstName");
+      const lastNameInput = document.getElementById("lastName");
+      const emailInput = document.getElementById("email");
+      const apiKeyInput = document.getElementById("apiKey");
+
+      const authFeedback = document.getElementById("authFeedback");
+      const createFeedback = document.getElementById("createFeedback");
+      const userListBody = document.getElementById("userListBody");
+
+      // --- 2. Fungsi Tampilan (UI) ---
+      function showFeedback(element, message, isValid) {
+        element.textContent = message;
+        element.classList.remove("valid", "invalid");
+        element.classList.add("visible", isValid ? "valid" : "invalid");
+        setTimeout(() => element.classList.remove("visible"), 3000);
+      }
+      function showAdminPanel(email, token) {
+        jwtToken = token;
+        loggedInEmail.textContent = email;
+        authSection.style.display = "none";
+        adminPanel.style.display = "block";
+      }
+      function showLoginPanel() {
+        jwtToken = null;
+        loggedInEmail.textContent = "";
+        authSection.style.display = "block";
+        adminPanel.style.display = "none";
+        adminEmailInput.value = "";
+        adminPasswordInput.value = "";
+      }
+
+      // --- 3. Fungsi Logika (Fetch API Admin) ---
+      async function registerAdmin() {
+        const email = adminEmailInput.value;
+        const password = adminPasswordInput.value;
+        try {
+          const res = await fetch("/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+          });
+          const data = await res.json();
+          showFeedback(authFeedback, data.message || data.error, res.ok);
+        } catch (err) {
+          showFeedback(authFeedback, "Error jaringan.", false);
+        }
+      }
+
+      async function loginAdmin() {
+        const email = adminEmailInput.value;
+        const password = adminPasswordInput.value;
+        try {
+          const res = await fetch("/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            showAdminPanel(email, data.token);
+          } else {
+            showFeedback(authFeedback, data.error, false);
+          }
+        } catch (err) {
+          showFeedback(authFeedback, "Error jaringan.", false);
+        }
+      }
+
+      async function generateKey() {
+        try {
+          const res = await fetch("/generate_key");
+          const data = await res.json();
+          if (res.ok) {
+            apiKeyInput.value = data.apiKey;
+            showFeedback(createFeedback, "Key berhasil digenerate!", true);
+          }
+        } catch (err) {
+          showFeedback(createFeedback, "Gagal generate key", false);
+        }
+      }
+
+      async function createUser() {
+        const body = {
+          firstName: firstNameInput.value,
+          lastName: lastNameInput.value,
+          email: emailInput.value,
+          apiKey: apiKeyInput.value,
+        };
+        if (!body.firstName || !body.lastName || !body.email || !body.apiKey) {
+          showFeedback(createFeedback, "Semua field harus diisi!", false);
+          return;
+        }
+        try {
+          const res = await fetch("/users", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${jwtToken}`,
+            },
+            body: JSON.stringify(body),
+          });
+          const data = await res.json();
+          showFeedback(createFeedback, data.message || data.error, res.ok);
+          if (res.ok) {
+            firstNameInput.value = "";
+            lastNameInput.value = "";
+            emailInput.value = "";
+            apiKeyInput.value = "";
+            listUsers(); // Refresh daftar user
+          }
+        } catch (err) {
+          showFeedback(createFeedback, "Error jaringan.", false);
+        }
+      }
+
+      async function listUsers() {
+        try {
+          const res = await fetch("/users", {
+            headers: { Authorization: `Bearer ${jwtToken}` },
+          });
+          const users = await res.json();
+          if (!res.ok) {
+            showFeedback(createFeedback, users.error, false);
+            if (res.status === 401 || res.status === 403) showLoginPanel();
+            return;
+          }
+          userListBody.innerHTML = "";
+          if (users.length === 0) {
+            userListBody.innerHTML =
+              '<tr><td colspan="4">Belum ada user.</td></tr>';
+          }
+          users.forEach((user) => {
+            userListBody.innerHTML += `
+                        <tr><td>${user.id}</td><td>${user.email}</td>
+                         <td>${user.api_key}</td><td>${user.status}</td></tr>
+                    `;
+          });
+        } catch (err) {
+          showFeedback(createFeedback, "Error jaringan.", false);
+        }
+      }
+
+      // --- 4. Event Listeners (Admin) ---
+      registerBtn.addEventListener("click", registerAdmin);
+      loginBtn.addEventListener("click", loginAdmin);
+      logoutBtn.addEventListener("click", showLoginPanel);
+      generateBtn.addEventListener("click", generateKey);
+      createBtn.addEventListener("click", createUser);
+      listBtn.addEventListener("click", listUsers);
+    </script>
+  </body>
+</html>
